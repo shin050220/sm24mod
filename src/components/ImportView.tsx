@@ -6,7 +6,7 @@ import type { UpsertResult } from '../store'
 
 interface Props {
   data: AppData
-  onImport: (items: ExtractedItem[]) => UpsertResult
+  onImport: (items: ExtractedItem[]) => { result: UpsertResult; made: number }
   onGoWrite: () => void
 }
 
@@ -23,7 +23,7 @@ export function ImportView({ data, onImport, onGoWrite }: Props) {
   const [description, setDescription] = useState('')
   const [items, setItems] = useState<(ExtractedItem & { keep: boolean })[] | null>(null)
   const [editIndex, setEditIndex] = useState<number | null>(null)
-  const [result, setResult] = useState<UpsertResult | null>(null)
+  const [result, setResult] = useState<{ result: UpsertResult; made: number } | null>(null)
 
   useEffect(() => () => files.forEach((f) => URL.revokeObjectURL(f.url)), [files])
 
@@ -66,6 +66,8 @@ export function ImportView({ data, onImport, onGoWrite }: Props) {
         <h3>スクショから読み取る</h3>
         <p className="muted small">
           SM24 の試合結果・移籍履歴・選手成績・順位表などの画面をスクショして選んでください（最大10枚）。AI が読み取って、保存前に確認・修正できます。
+          日程・結果一覧や順位表、得点ランキングの画面なら、1枚で何試合分・何人分もまとめて取り込めます。
+          読み取りには Claude API を使うので料金がかかります（Haiku 5.5 なら1回1円未満が目安）。
         </p>
         <label className="file-pick">
           <input type="file" accept="image/*" multiple onChange={(e) => pick(e.target.files)} />
@@ -94,9 +96,10 @@ export function ImportView({ data, onImport, onGoWrite }: Props) {
       {result && (
         <div className="panel success">
           <p>
-            保存しました：追加 {result.added} 件・更新 {result.updated} 件・重複スキップ {result.skipped} 件
+            保存しました：追加 {result.result.added} 件・更新 {result.result.updated} 件・重複スキップ {result.result.skipped} 件
+            {result.made > 0 && `。記事を ${result.made} 本作成しました`}
           </p>
-          <button className="primary" onClick={onGoWrite}>このまま記事を作る</button>
+          <button className="primary" onClick={onGoWrite}>ニュースを見る</button>
         </div>
       )}
 

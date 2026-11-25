@@ -8,6 +8,8 @@ export const DEFAULT_DATA: AppData = {
   settings: {
     apiKey: '',
     model: 'claude-opus-5-5',
+    engine: 'template',
+    autoArticle: true,
     myClub: '',
     season: '2024/25',
     paperName: 'SM24 スポーツ',
@@ -52,10 +54,11 @@ export interface UpsertResult {
 export function upsertRecords(
   existing: DataRecord[],
   incoming: { kind: RecordKind; data: Record<string, FieldValue> }[],
-): { records: DataRecord[]; result: UpsertResult } {
+): { records: DataRecord[]; result: UpsertResult; touched: DataRecord[] } {
   const records = [...existing]
   const index = new Map(records.map((r, i) => [recordKey(r), i]))
   const result: UpsertResult = { added: 0, updated: 0, skipped: 0 }
+  const touched: number[] = []
   const now = new Date().toISOString()
   for (const item of incoming) {
     const key = recordKey(item)
@@ -63,15 +66,17 @@ export function upsertRecords(
     if (at === undefined) {
       records.push({ id: newId(), kind: item.kind, createdAt: now, data: item.data })
       index.set(key, records.length - 1)
+      touched.push(records.length - 1)
       result.added++
     } else if (item.kind === 'stat' || item.kind === 'standing') {
       records[at] = { ...records[at], data: { ...records[at].data, ...item.data } }
+      touched.push(at)
       result.updated++
     } else {
       result.skipped++
     }
   }
-  return { records, result }
+  return { records, result, touched: [...new Set(touched)].map((i) => records[i]) }
 }
 
 export function useAppData() {

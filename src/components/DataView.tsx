@@ -4,7 +4,7 @@ import { RecordForm } from './RecordForm'
 
 interface Props {
   data: AppData
-  onAdd: (kind: RecordKind, data: Record<string, FieldValue>) => string
+  onAdd: (kind: RecordKind, data: Record<string, FieldValue>) => unknown
   onSave: (record: DataRecord) => void
   onDelete: (id: string) => void
 }

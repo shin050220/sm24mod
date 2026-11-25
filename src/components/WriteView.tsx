@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { describeError, LENGTHS, STYLES, writeArticles, type WriteOptions } from '../claude'
-import { KIND_LABELS, summarize, type AppData, type Article, type RecordKind } from '../types'
+import { templateArticles } from '../templates'
+import { KIND_LABELS, summarize, type AppData, type ArticleEngine, type NewArticle, type RecordKind } from '../types'
 
 interface Props {
   data: AppData
-  onPublish: (articles: Omit<Article, 'id' | 'createdAt'>[]) => void
+  onPublish: (articles: NewArticle[]) => void
   onDone: () => void
 }
 
@@ -21,6 +22,7 @@ export function WriteView({ data, onPublish, onDone }: Props) {
     allowQuotes: true,
     instructions: '',
   })
+  const [engine, setEngine] = useState<ArticleEngine>(data.settings.engine)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [published, setPublished] = useState<number | null>(null)
@@ -56,6 +58,14 @@ export function WriteView({ data, onPublish, onDone }: Props) {
     setPublished(null)
     try {
       const chosen = data.records.filter((r) => selected.has(r.id))
+      if (engine === 'template') {
+        const articles = templateArticles(chosen, data.records, data.settings)
+        if (articles.length === 0) throw new Error('このデータからはテンプレ記事を作れませんでした（スコアが空の試合など）。')
+        onPublish(articles)
+        setPublished(articles.length)
+        setSelected(new Set())
+        return
+      }
       const season = data.settings.season
       const standings = data.records
         .filter((r) => r.kind === 'standing' && (!season || r.data.season === season) && !selected.has(r.id))
@@ -117,6 +127,14 @@ export function WriteView({ data, onPublish, onDone }: Props) {
 
       <div className="panel">
         <h3>2. 書き方を決める</h3>
+        <div className="segmented">
+          <button className={engine === 'template' ? 'active' : ''} onClick={() => setEngine('template')}>テンプレ（無料）</button>
+          <button className={engine === 'ai' ? 'active' : ''} onClick={() => setEngine('ai')}>AI（有料・文章が豊か）</button>
+        </div>
+        {engine === 'template' && (
+          <p className="muted small">決まった型の文章で、試合・移籍は1件ずつ、順位と成績はまとめて記事にします。すぐできて料金はかかりません。</p>
+        )}
+        {engine === 'ai' && (
         <div className="form-grid">
           <label className="field">
             <span>文体</span>
@@ -154,12 +172,13 @@ export function WriteView({ data, onPublish, onDone }: Props) {
             />
           </label>
         </div>
+        )}
         <div className="row-actions">
           <button className="primary" disabled={selected.size === 0 || busy} onClick={run}>
             {busy ? '執筆中…（数十秒かかります）' : `${selected.size} 件のデータから記事を作る`}
           </button>
         </div>
-        {!data.settings.apiKey && <p className="warn">先に「設定」で API キーを入力してください。</p>}
+        {engine === 'ai' && !data.settings.apiKey && <p className="warn">先に「設定」で API キーを入力してください。</p>}
         {error && <p className="error">{error}</p>}
         {published !== null && (
           <div className="success">

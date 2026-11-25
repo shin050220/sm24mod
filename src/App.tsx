@@ -1,14 +1,18 @@
 import { useState } from 'react'
+import { Dashboard } from './components/Dashboard'
 import { DataView } from './components/DataView'
 import { ImportView } from './components/ImportView'
 import { NewsFeed } from './components/NewsFeed'
 import { SettingsView } from './components/SettingsView'
 import { WriteView } from './components/WriteView'
 import { newId, upsertRecords, useAppData } from './store'
+import { templateArticles } from './templates'
+import type { AppData, FieldValue, NewArticle, RecordKind } from './types'
 
-type Tab = 'news' | 'import' | 'data' | 'write' | 'settings'
+type Tab = 'home' | 'news' | 'import' | 'data' | 'write' | 'settings'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: 'home', label: 'ホーム', icon: '🏟️' },
   { id: 'news', label: 'ニュース', icon: '📰' },
   { id: 'import', label: '取り込み', icon: '📷' },
   { id: 'data', label: 'データ', icon: '📊' },
@@ -16,9 +20,29 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'settings', label: '設定', icon: '⚙️' },
 ]
 
+function withArticles(d: AppData, articles: NewArticle[]): AppData {
+  const now = Date.now()
+  return {
+    ...d,
+    articles: [
+      ...d.articles,
+      // 1本目がフィードの先頭に来るよう、作成時刻を少しずつずらす
+      ...articles.map((a, i) => ({ ...a, id: newId(), createdAt: new Date(now - i * 1000).toISOString() })),
+    ],
+  }
+}
+
 export default function App() {
   const { data, update, saveError } = useAppData()
-  const [tab, setTab] = useState<Tab>(data.settings.apiKey ? 'news' : 'settings')
+  const [tab, setTab] = useState<Tab>('home')
+
+  /** データを追加し、自動記事化がオンならテンプレ記事も作る。作った記事の本数を返す。 */
+  const addRecords = (items: { kind: RecordKind; data: Record<string, FieldValue> }[]) => {
+    const merged = upsertRecords(data.records, items)
+    const articles = data.settings.autoArticle ? templateArticles(merged.touched, merged.records, data.settings, { auto: true }) : []
+    update((d) => withArticles({ ...d, records: merged.records }, articles))
+    return { result: merged.result, made: articles.length }
+  }
 
   const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
 
@@ -45,6 +69,7 @@ export default function App() {
 
       <main className="content">
         {saveError && <p className="error">{saveError}</p>}
+        {tab === 'home' && <Dashboard data={data} onGo={setTab} onQuickAdd={(kind, d) => addRecords([{ kind, data: d }]).made} />}
         {tab === 'news' && (
           <NewsFeed
             data={data}
@@ -52,46 +77,16 @@ export default function App() {
             onDelete={(id) => update((d) => ({ ...d, articles: d.articles.filter((a) => a.id !== id) }))}
           />
         )}
-        {tab === 'import' && (
-          <ImportView
-            data={data}
-            onGoWrite={() => setTab('write')}
-            onImport={(items) => {
-              const merged = upsertRecords(data.records, items)
-              update((d) => ({ ...d, records: merged.records }))
-              return merged.result
-            }}
-          />
-        )}
+        {tab === 'import' && <ImportView data={data} onGoWrite={() => setTab('news')} onImport={addRecords} />}
         {tab === 'data' && (
           <DataView
             data={data}
-            onAdd={(kind, recordData) => {
-              const id = newId()
-              update((d) => ({ ...d, records: [...d.records, { id, kind, createdAt: new Date().toISOString(), data: recordData }] }))
-              return id
-            }}
+            onAdd={(kind, recordData) => addRecords([{ kind, data: recordData }])}
             onSave={(rec) => update((d) => ({ ...d, records: d.records.map((r) => (r.id === rec.id ? rec : r)) }))}
             onDelete={(id) => update((d) => ({ ...d, records: d.records.filter((r) => r.id !== id) }))}
           />
         )}
-        {tab === 'write' && (
-          <WriteView
-            data={data}
-            onDone={() => setTab('news')}
-            onPublish={(articles) => {
-              const now = Date.now()
-              update((d) => ({
-                ...d,
-                articles: [
-                  ...d.articles,
-                  // 1本目がフィードの先頭に来るよう、作成時刻を少しずつずらす
-                  ...articles.map((a, i) => ({ ...a, id: newId(), createdAt: new Date(now - i * 1000).toISOString() })),
-                ],
-              }))
-            }}
-          />
-        )}
+        {tab === 'write' && <WriteView data={data} onDone={() => setTab('news')} onPublish={(articles) => update((d) => withArticles(d, articles))} />}
         {tab === 'settings' && (
           <SettingsView
             data={data}

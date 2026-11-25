@@ -30,9 +30,15 @@ export const MODELS = [
   { id: 'claude-haiku-5-5', label: 'Claude Haiku 5.5（安い・速い）' },
 ] as const
 
+export type ArticleEngine = 'template' | 'ai'
+
 export interface Settings {
   apiKey: string
   model: string
+  /** 記事の作り方: テンプレ（無料）か AI か */
+  engine: ArticleEngine
+  /** データを追加したら自動で記事にする（テンプレ） */
+  autoArticle: boolean
   myClub: string
   season: string
   paperName: string
@@ -140,4 +146,17 @@ export function summarize(r: DataRecord): string {
     case 'standing':
       return `${v('competition')} ${v('rank')}位 ${v('club')} 勝点${v('points')}`
   }
+}
+
+export type NewArticle = Omit<Article, 'id' | 'createdAt'>
+
+const norm = (s: unknown) => String(s ?? '').trim().toLowerCase()
+
+/** クラブ名が自分のクラブかどうか（表記ゆれを少し許す） */
+export function isMyClub(name: unknown, myClub: string): boolean {
+  const a = norm(name)
+  const b = norm(myClub)
+  if (!a || !b) return false
+  if (a === b) return true
+  return b.length >= 3 && (a.includes(b) || b.includes(a))
 }

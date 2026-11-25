@@ -41,7 +41,22 @@ export function SettingsView({ data, onSettings, onReplace }: Props) {
   return (
     <div>
       <div className="panel">
-        <h3>Claude API</h3>
+        <h3>記事</h3>
+        <label className="field inline">
+          <input type="checkbox" checked={s.autoArticle} onChange={(e) => set({ autoArticle: e.target.checked })} />
+          <span>データを追加したら自動で記事にする（テンプレ・無料）</span>
+        </label>
+        <label className="field wide">
+          <span>「記事作成」の標準の作り方</span>
+          <select value={s.engine} onChange={(e) => set({ engine: e.target.value as Settings['engine'] })}>
+            <option value="template">テンプレ（無料）</option>
+            <option value="ai">AI（有料）</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="panel">
+        <h3>Claude API（スクショ読み取り・AI 記事を使うときだけ必要）</h3>
         <label className="field wide">
           <span>API キー</span>
           <div className="key-row">
@@ -56,7 +71,7 @@ export function SettingsView({ data, onSettings, onReplace }: Props) {
           </div>
         </label>
         <p className="muted small">
-          キーは console.anthropic.com で作れます。キーはこの端末のブラウザにだけ保存され、Anthropic の API へ直接送られます。共用の端末では入力しないでください。
+          料金の目安（1回あたり）：Haiku 5.5 は1円未満、Sonnet 5.5 は5〜8円、Opus 5.5 は10〜15円ほど。キーは console.anthropic.com で作れます。キーはこの端末のブラウザにだけ保存され、Anthropic の API へ直接送られます。共用の端末では入力しないでください。
         </p>
         <label className="field wide">
           <span>モデル</span>
